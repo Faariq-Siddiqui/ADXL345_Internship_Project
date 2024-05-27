@@ -50,13 +50,12 @@ struct acc_reg_dat{
 	uint16_t reg_x;
 	uint16_t reg_y;
 	uint16_t reg_z;
-} sensorData;
+} sensorData, output;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 uint8_t dataStoreBuffer[1];
-int16_t read_Accelerometer_Reg_X, read_Accelerometer_Reg_Y, read_Accelerometer_Reg_Z;
 
 /* USER CODE END PD */
 
@@ -147,6 +146,12 @@ void read_XYZ(void){
 
 }
 
+uint16_t convert_Value_In_G(uint16_t registerValue){
+	uint16_t registerValueInGs = (registerValue * 15.6)/1000;
+	return registerValueInGs;
+}
+
+
 int _write(int file, char *ptr, int len){
 	HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
 	return len;
@@ -200,7 +205,12 @@ int main(void)
 
   			read_XYZ();
 
-  			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n",numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+  			output.reg_x = convert_Value_In_G(sensorData.reg_x);
+  			output.reg_y = convert_Value_In_G(sensorData.reg_y);
+  			output.reg_z = convert_Value_In_G(sensorData.reg_z);
+
+  			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n", numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+  			printf("%d. x: %u, y: %u, z; %u G\r\n", numberOfReadings, output.reg_x, output.reg_y, output.reg_z);
   			HAL_Delay(500);
   			numberOfReadings--;
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
