@@ -51,7 +51,7 @@ struct acc_reg_dat{
 	uint16_t reg_x;
 	uint16_t reg_y;
 	uint16_t reg_z;
-} sensorData, output;
+} sensorData, output_in_G, output_in_MetersPerSecondSquared;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -147,11 +147,15 @@ void read_XYZ(void){
 
 }
 
-uint16_t convert_Value_In_G(uint16_t registerValue){
-	uint16_t registerValueInGs = ((registerValue * 15.6)/ 1000 ) * ACCELERATION_DUE_TO_GRAVITY;
-	return registerValueInGs;
+uint16_t convert_output_to_G(uint16_t registerValue){
+	uint16_t register_value_in_G = ((registerValue * 15.6)/ 1000 );
+	return register_value_in_G;
 }
 
+uint16_t convert_output_to_MeterPerSecondSqaure(uint16_t registerValue){
+	uint16_t register_value_in_MeterPerSecondSqaure = ((registerValue * 15.6)/ 1000 )* ACCELERATION_DUE_TO_GRAVITY;
+	return register_value_in_MeterPerSecondSqaure;
+}
 
 int _write(int file, char *ptr, int len){
 	HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
@@ -168,6 +172,7 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	int total_value_in_G = 0;
+	int total_value_in_MeterPerSecondSquare = 0;
 	int stopFlag = 1;
   /* USER CODE END 1 */
 
@@ -206,19 +211,27 @@ int main(void)
 
   			read_XYZ();
 
-  			output.reg_x = convert_Value_In_G(sensorData.reg_x);
-  			output.reg_y = convert_Value_In_G(sensorData.reg_y);
-  			output.reg_z = convert_Value_In_G(sensorData.reg_z);
+  			output_in_G.reg_x = convert_output_to_G(sensorData.reg_x);
+  			output_in_G.reg_y = convert_output_to_G(sensorData.reg_y);
+  			output_in_G.reg_z = convert_output_to_G(sensorData.reg_z);
 
-  			total_value_in_G = sqrt(pow(output.reg_x,2) + pow(output.reg_y,2) + pow(output.reg_z,2));
+  			output_in_MetersPerSecondSquared.reg_x = convert_output_to_MeterPerSecondSqaure(sensorData.reg_x);
+  			output_in_MetersPerSecondSquared.reg_y = convert_output_to_MeterPerSecondSqaure(sensorData.reg_y);
+  			output_in_MetersPerSecondSquared.reg_z = convert_output_to_MeterPerSecondSqaure(sensorData.reg_z);
+
+  			total_value_in_G = sqrt(pow(output_in_G.reg_x,2) + pow(output_in_G.reg_y,2) + pow(output_in_G.reg_z,2));
+  			total_value_in_MeterPerSecondSquare = sqrt(pow(output_in_MetersPerSecondSquared.reg_x,2) + pow(output_in_MetersPerSecondSquared.reg_y,2) + pow(output_in_MetersPerSecondSquared.reg_z,2));
 
   			printf("-----------------------------------------------------------------------------------------------------------\r\n");
-  			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n", numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+  			printf("%d. x: %u, y: %u, z; %u RAW OUTPUT\r\n", numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
   			printf("\r\n");
-  			printf("%d. x: %u, y: %u, z; %u G\r\n", numberOfReadings, output.reg_x, output.reg_y, output.reg_z);
+  			printf("%d. x: %u, y: %u, z; %u G\r\n", numberOfReadings, output_in_G.reg_x, output_in_G.reg_y, output_in_G.reg_z);
+  			printf("\r\n");
+  			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n", numberOfReadings, output_in_MetersPerSecondSquared.reg_x, output_in_MetersPerSecondSquared.reg_y, output_in_MetersPerSecondSquared.reg_z);
   			printf("\r\n");
   			printf("Total Value: %u\r\n", total_value_in_G);
   			printf("-----------------------------------------------------------------------------------------------------------\r\n");
+
   			HAL_Delay(500);
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
   			HAL_Delay(500);
