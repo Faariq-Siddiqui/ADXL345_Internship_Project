@@ -42,6 +42,7 @@
 #define ADXL345_REG_Z1 0x37
 
 #define ADXL345_HIGH_REG_VALUE 0xff
+#define ACCELERATION_DUE_TO_GRAVITY 9.8
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -147,7 +148,7 @@ void read_XYZ(void){
 }
 
 uint16_t convert_Value_In_G(uint16_t registerValue){
-	uint16_t registerValueInGs = (registerValue * 15.6)/1000;
+	uint16_t registerValueInGs = ((registerValue * 15.6)/ 1000 ) * ACCELERATION_DUE_TO_GRAVITY;
 	return registerValueInGs;
 }
 
@@ -166,7 +167,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+	int total_value_in_G = 0;
+	int stopFlag = 1;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -195,11 +197,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int numberOfReadings = 15;
   while (1)
     {
       /* USER CODE END WHILE */
-  	  while(numberOfReadings != 0){
+  	  for(int numberOfReadings = 0; numberOfReadings <= 15; numberOfReadings++){
 
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
@@ -209,13 +210,23 @@ int main(void)
   			output.reg_y = convert_Value_In_G(sensorData.reg_y);
   			output.reg_z = convert_Value_In_G(sensorData.reg_z);
 
+  			total_value_in_G = sqrt(pow(output.reg_x,2) + pow(output.reg_y,2) + pow(output.reg_z,2));
+
+  			printf("-----------------------------------------------------------------------------------------------------------\r\n");
   			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n", numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+  			printf("\r\n");
   			printf("%d. x: %u, y: %u, z; %u G\r\n", numberOfReadings, output.reg_x, output.reg_y, output.reg_z);
+  			printf("\r\n");
+  			printf("Total Value: %u\r\n", total_value_in_G);
+  			printf("-----------------------------------------------------------------------------------------------------------\r\n");
   			HAL_Delay(500);
-  			numberOfReadings--;
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
   			HAL_Delay(500);
   	  	}
+
+  	  while(stopFlag != 0){
+
+  	  }
       /* USER CODE BEGIN 3 */
     }
   /* USER CODE END 3 */
