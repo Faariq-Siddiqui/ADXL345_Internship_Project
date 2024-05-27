@@ -1,20 +1,39 @@
-
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
 #include "main.h"
-
 #include <stdio.h>
 #include <math.h>
-#include <string.h>
 
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #define ADXL345_DEV_ADDRESS 0x53 << 1
-#define ADXL345_HIGH_REG_VALUE 0xff
 #define ADXL345_REG_BW_RATE 0x2C
 #define ADXL345_REG_DEVID 0x00
+
 #define ADXL345_REG_POWER_CTL 0x2D
 #define ADXL345_MEASURE_MODE 0x08
 #define ADXL345_REG_THRESHOLD_ACTIVE 0x24
 #define ADXL345_REG_THRESHOLD_INACTIVE 0x25
 #define ADXL345_REG_TAP_AXES 0x2A
 #define ADXL345_REG_DATA_FORMAT 0x31
+
 #define ADXL345_REG_X0 0x32
 #define ADXL345_REG_X1 0x33
 #define ADXL345_REG_Y0 0x34
@@ -23,54 +42,80 @@
 #define ADXL345_REG_Z1 0x37
 
 #define ADXL345_HIGH_REG_VALUE 0xff
+/* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
 struct acc_reg_dat{
 	uint16_t reg_x;
 	uint16_t reg_y;
 	uint16_t reg_z;
 } sensorData;
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+uint8_t dataStoreBuffer[1];
+int16_t read_Accelerometer_Reg_X, read_Accelerometer_Reg_Y, read_Accelerometer_Reg_Z;
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
-TIM_HandleTypeDef htim1;
-
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-uint8_t dataStoreBuffer[0];
-int16_t read_Accelerometer_Reg_X, read_Accelerometer_Reg_Y, read_Accelerometer_Reg_Z;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_TIM1_Init(void);
-static void MX_I2C1_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_I2C1_Init(void);
+/* USER CODE BEGIN PFP */
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
-
+/* USER CODE END PFP */
+uint8_t temp;
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
 void ADXL345_Write_To_Reg(uint16_t MemAddress, uint8_t Data){
-	HAL_I2C_Mem_Write(&hi2c1, ADXL345_DEV_ADDRESS, MemAddress, 1, &Data, 1, 100);
+	if (HAL_I2C_Mem_Write(&hi2c1, ADXL345_DEV_ADDRESS, MemAddress, 1, &Data, 1, 100) == HAL_OK )
+	{
+		temp = 23;
+	}
+	else
+	{
+		temp = 1;
+
+	}
 }
 
 void ADXL345_Init(void){
-	ADXL345_Write_To_Reg(ADXL345_REG_POWER_CTL, 0x3B); // Power Control Register
+	ADXL345_Write_To_Reg(ADXL345_REG_POWER_CTL, 0x08); // Power Control Register (F: 0x3B)
 	ADXL345_Write_To_Reg(ADXL345_REG_THRESHOLD_ACTIVE, 0x01); // Threshold Register
 	ADXL345_Write_To_Reg(ADXL345_REG_THRESHOLD_INACTIVE, 0x0F); // Threshold Inactive
 	ADXL345_Write_To_Reg(ADXL345_REG_TAP_AXES, 0x00);
 	ADXL345_Write_To_Reg(ADXL345_REG_DATA_FORMAT, 0x0A); // Tap Axes Register
-
+	ADXL345_Write_To_Reg(ADXL345_REG_BW_RATE, 0x0A);
 }
 
 uint8_t ADXL345_Read_From_Reg(uint16_t MemAddress){
-	HAL_I2C_Mem_Read(&hi2c1, ADXL345_DEV_ADDRESS, MemAddress, 1, dataStoreBuffer, 1, 100);
+	if (HAL_I2C_Mem_Read(&hi2c1, ADXL345_DEV_ADDRESS, MemAddress, 1, dataStoreBuffer, 1, 100) == HAL_OK )
+	{
+		temp = 23;
+	}
+	else
+	{
+		temp = 1;
+
+	}
 	return dataStoreBuffer[0];
 }
 
@@ -106,31 +151,66 @@ int _write(int file, char *ptr, int len){
 	HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
 	return len;
 }
+/* USER CODE END 0 */
 
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
   SystemClock_Config();
 
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_TIM1_Init();
-  MX_I2C1_Init();
   MX_USART2_UART_Init();
-
+  MX_I2C1_Init();
+  /* USER CODE BEGIN 2 */
   ADXL345_Init();
+  /* USER CODE END 2 */
 
-  int numberOfReadings = 10;
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  int numberOfReadings = 15;
   while (1)
-  {
-	while(numberOfReadings != 0){
-	read_XYZ();
+    {
+      /* USER CODE END WHILE */
+  	  while(numberOfReadings != 0){
 
-	printf("%d. x: %u, y: %u, z; %u m/s^2\r\n",numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
-    HAL_Delay(500);
-    numberOfReadings--;
-	}
-  }
+  			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+
+  			read_XYZ();
+
+  			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n",numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+  			HAL_Delay(500);
+  			numberOfReadings--;
+  			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  			HAL_Delay(500);
+  	  	}
+      /* USER CODE BEGIN 3 */
+    }
+  /* USER CODE END 3 */
 }
+
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -177,10 +257,17 @@ void SystemClock_Config(void)
 static void MX_I2C1_Init(void)
 {
 
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
   hi2c1.Init.ClockSpeed = 100000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
-  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.OwnAddress1 = 166;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c1.Init.OwnAddress2 = 0;
@@ -190,41 +277,10 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
-}
+  /* USER CODE BEGIN I2C1_Init 2 */
 
-/**
-  * @brief TIM1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM1_Init(void)
-{
+  /* USER CODE END I2C1_Init 2 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 65535;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
 }
 
 /**
@@ -235,6 +291,13 @@ static void MX_TIM1_Init(void)
 static void MX_USART2_UART_Init(void)
 {
 
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
   huart2.Init.BaudRate = 115200;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
@@ -247,6 +310,10 @@ static void MX_USART2_UART_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
 }
 
 /**
@@ -290,6 +357,10 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
+/* USER CODE BEGIN 4 */
+
+/* USER CODE END 4 */
+
 /**
   * @brief  This function is executed in case of error occurrence.
   * @retval None
@@ -297,11 +368,10 @@ static void MX_GPIO_Init(void)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add their own implementation to report the HAL error return state */
+  /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
   while (1)
   {
-    // You can add a blinking LED or other error indication here if desired
   }
   /* USER CODE END Error_Handler_Debug */
 }
@@ -317,7 +387,7 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add their own implementation to report the file name and line number,
+  /* User can add his own implementation to report the file name and line number,
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
