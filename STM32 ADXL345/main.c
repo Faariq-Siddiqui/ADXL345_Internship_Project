@@ -1,6 +1,9 @@
 /* Including  Header Files */
 #include "main.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 #include <math.h>
 
 /* Defining Device Defaults*/
@@ -29,6 +32,10 @@
 #define ACCELERATION_DUE_TO_GRAVITY 9.8
 #define SCALE_FACTOR 4.3
 
+float total_value_in_G = 0;
+float total_value_in_MeterPerSecondSquare = 0;
+int stopFlag = 1;
+
 /* creates structures to store values in registers */
 struct acc_reg_data{
 	int16_t reg_x;
@@ -42,9 +49,25 @@ struct output_reg_data{
 	float reg_z;
 } output_in_G, output_in_MetersPerSecondSquared;
 
-/* Stores a byte of data */
+/*initialisations...*/
 uint8_t dataStoreBuffer[1];
 uint8_t temp;
+
+/// File Functionality Variables
+int save_to_file_flag = 0;
+int logFileNumber = 0;
+
+char fileName_TXT[15];
+char fileName_CSV[15];
+
+char filePath_TXT[150];
+char filePath_CSV[150];
+
+int fileStatus_TXT = 0;
+int fileStatus_CSV = 0;
+int fileStatus = 0;
+
+FILE *file = NULL;
 
 I2C_HandleTypeDef hi2c1;
 
@@ -57,6 +80,54 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
 /* Private user code ---------------------------------------------------------*/
+
+
+int fileHandler(const char *FilePath, const char *FileName){
+    file = fopen(FilePath, "r");
+    if(file == NULL){
+        printf("File %s does not exist...\n", FileName);
+        printf("Creating %s file...\n", FileName);
+
+        file = fopen(FilePath, "w");
+        if(file == NULL){
+            printf("Failed to create file %s | Error: %s\n", FileName, strerror(errno));
+            return 0;
+        }
+        fclose(file);
+        printf("File %s created...\n", FileName);
+        return 1;
+    } else {
+        printf("\nFile %s Exists...\n", FileName);
+        fclose(file); // Close the file after checking
+        file = NULL;
+        return -1;
+    }
+}
+
+void  log_Reading_As_TXT(const char *FilePath_TXT, int numberOfReadings){
+    file = fopen(FilePath_TXT, "a");
+    fprintf(file, "-----------------------------------------------------------------------------------------------------------\r\n");
+    fprintf(file, "Reading Number: %d\r\n", numberOfReadings);
+    fprintf(file, "x: %d, y: %d, z: %d RAW OUTPUT\r\n", sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+    fprintf(file, "x: %f, y: %f, z: %f G\r\n", output_in_G.reg_x, output_in_G.reg_y, output_in_G.reg_z);
+    fprintf(file, "x: %f, y: %f, z: %f m/s^2\r\n", output_in_MetersPerSecondSquared.reg_x, output_in_MetersPerSecondSquared.reg_y, output_in_MetersPerSecondSquared.reg_z);
+    fprintf(file, "Total Value: %f G\r\n", total_value_in_G);
+    fprintf(file, "Total Value: %f m/s^2\r\n", total_value_in_MeterPerSecondSquare);
+    fprintf(file, "-----------------------------------------------------------------------------------------------------------\r\n");
+    fclose(file);
+    file = NULL;
+}
+
+void  log_Reading_As_CSV(const char *FilePath_CSV, int numberOfReadings){
+    file = fopen(FilePath_CSV, "a");
+    fprintf(file, "%d, %d, %d, %d, %f, %f, %f, %f, %f, %f, %f, %f\r\n", numberOfReadings,
+            sensorData.reg_x, sensorData.reg_y, sensorData.reg_z, output_in_G.reg_x, output_in_G.reg_y,output_in_G.reg_z,
+            output_in_MetersPerSecondSquared.reg_x, output_in_MetersPerSecondSquared.reg_y, output_in_MetersPerSecondSquared.reg_z,
+            total_value_in_G, total_value_in_MeterPerSecondSquare);
+    fclose(file);
+    file = NULL;
+}
+
 
 /**************************************************
  * @brief:  This function writes to a single register of slave device whose address is supplied as a parameter under I2C Protocol.
@@ -122,7 +193,7 @@ uint8_t ADXL345_Read_From_Reg(uint16_t MemAddress){
 }
 
 // Uses ADXL345_Read_From_Reg() function to read from registers.
-void read_XYZ(void){
+void read_RegistersXYZ(void){
 
 	uint8_t x0, y0, z0, x1, y1, z1;
 
@@ -152,12 +223,17 @@ float convert_output_to_MeterPerSecondSqaure(uint16_t registerValue){
 	return register_value_in_MeterPerSecondSqaure;
 }
 
-// This helps provide pritnf output to the console shell in STM32CubeIDE via VirtualCOM through USART2.
+// This helps provide printf output to the console shell in STM32CubeIDE via VirtualCOM through USART2.
 int _write(int file, char *ptr, int len){
 	HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
 	return len;
 }
 
+// This helps provide scanf output to the console shell in STM32CubeIDE via VirtualCOM through USART2.
+int _read(int file, char *ptr, int len) {
+	HAL_UART_Receive(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
+	return len;
+}
 
 /**
   * @brief  The application entry point.
@@ -165,11 +241,52 @@ int _write(int file, char *ptr, int len){
   */
 int main(void)
 {
-
   /* USER CODE BEGIN 1 */
-	float total_value_in_G = 0;
-	float total_value_in_MeterPerSecondSquare = 0;
-	int stopFlag = 1;
+	if ( save_to_file_flag == 1 ){
+
+		        // Get Log File Number
+		        printf("Enter log file number: ");
+		        scanf("%d", &logFileNumber);
+
+		        // Creating File Name
+		        sprintf(fileName_TXT,"log_%d.txt", logFileNumber);
+		        sprintf(fileName_CSV,"log_%d.csv", logFileNumber);
+
+		//        printf("---------------------------------------------------------\n");
+		//        printf("Log File Name: %s\n", fileName_TXT);
+		//        printf("Log File Name: %s\n", fileName_CSV);
+		//        printf("---------------------------------------------------------\n");
+
+		        // Creating File Path
+		        sprintf(filePath_TXT,"C:\\Users\\fazam\\Documents\\HiOctaneLabs Internship\\Readings and Results\\ADXL345_ON_STM32F103RB_Log_TXT\\%s", fileName_TXT);
+		        sprintf(filePath_CSV,"C:\\Users\\fazam\\Documents\\HiOctaneLabs Internship\\Readings and Results\\ADXL345_ON_STM32F103RB_Log_CSV\\%s", fileName_CSV);
+
+		//        printf("---------------------------------------------------------\n");
+		//        printf("Log File Path: %s\n", filePath_TXT);
+		//        printf("Log File Path: %s\n", filePath_CSV);
+		//        printf("---------------------------------------------------------\n");
+
+		        // Ensure that the file exists
+		        printf("---------------------------------------------------------\n");
+		        fileStatus_TXT = fileHandler(filePath_TXT, fileName_TXT);
+		        if (fileStatus_TXT == -1){
+		            return 0;
+		        }
+		        printf("\n");
+		        fileStatus_CSV = fileHandler(filePath_CSV, fileName_CSV);
+		        if (fileStatus_CSV == -1){
+		            return 0;
+		        }
+		        printf("---------------------------------------------------------\n");
+
+		        // Create Headers for CSV file
+		        file = fopen(filePath_CSV, "w");
+		        fprintf(file, "Reading Number, x, y, z, x in G, y in G, z in G, x in m/s^2, y in m/s^2, z in m/s^2, Total Value in G, Total Value in m/s^2\r\n");
+		        fclose(file);
+
+		        // Check if both files exist
+		        fileStatus = fileStatus_TXT * fileStatus_CSV;
+		    }
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -192,11 +309,11 @@ int main(void)
   while (1)
     {
 
-  	  for(int numberOfReadings = 1; numberOfReadings <= 25; numberOfReadings++){
+  	  for ( int numberOfReadings = 1; numberOfReadings <= 25; numberOfReadings++ ){
 
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
-  			read_XYZ();
+  			read_RegistersXYZ();
 
   			output_in_G.reg_x = convert_output_to_G(sensorData.reg_x);
   			output_in_G.reg_y = convert_output_to_G(sensorData.reg_y);
@@ -221,6 +338,10 @@ int main(void)
   			printf("Total Value: %f m/s^2\r\n", total_value_in_MeterPerSecondSquare);
   			printf("\r\n");
   			printf("-----------------------------------------------------------------------------------------------------------\r\n");
+  			if (save_to_file_flag == 1 && fileStatus == 1){
+  			            log_Reading_As_TXT(filePath_TXT, numberOfReadings);
+  			            log_Reading_As_CSV(filePath_CSV, numberOfReadings);
+  			}
 
   			HAL_Delay(500);
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
@@ -228,11 +349,9 @@ int main(void)
   	  	}
 
   	  while(stopFlag != 0){
-
+  		  return 0;
   	  }
-
     }
-
 }
 
 /**
