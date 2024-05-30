@@ -41,23 +41,39 @@
 #define ADXL345_REG_Z0 0x36
 #define ADXL345_REG_Z1 0x37
 
+#define ADXL345_OFSX 0x1E
+#define ADXL345_OFSY 0x1F
+#define ADXL345_OFSZ 0x20
+
 #define ADXL345_HIGH_REG_VALUE 0xff
 #define ACCELERATION_DUE_TO_GRAVITY 9.8
+#define SCALE_FACTOR 4.3
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-struct acc_reg_dat{
-	uint16_t reg_x;
-	uint16_t reg_y;
-	uint16_t reg_z;
-} sensorData, output_in_G, output_in_MetersPerSecondSquared;
+struct acc_reg_data{
+	int16_t reg_x;
+	int16_t reg_y;
+	int16_t reg_z;
+} sensorData;
+
+struct output_reg_data{
+	float reg_x;
+	float reg_y;
+	float reg_z;
+} output_in_G, output_in_MetersPerSecondSquared;
+
+//struct offset_reg{
+//	uint8_t reg_x;
+//	uint8_t reg_y;
+//	uint8_t reg_z;
+//} offset;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 uint8_t dataStoreBuffer[1];
-
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -98,12 +114,30 @@ void ADXL345_Write_To_Reg(uint16_t MemAddress, uint8_t Data){
 }
 
 void ADXL345_Init(void){
-	ADXL345_Write_To_Reg(ADXL345_REG_POWER_CTL, 0x08); // Power Control Register (F: 0x3B)
-	ADXL345_Write_To_Reg(ADXL345_REG_THRESHOLD_ACTIVE, 0x01); // Threshold Register
-	ADXL345_Write_To_Reg(ADXL345_REG_THRESHOLD_INACTIVE, 0x0F); // Threshold Inactive
-	ADXL345_Write_To_Reg(ADXL345_REG_TAP_AXES, 0x00);
-	ADXL345_Write_To_Reg(ADXL345_REG_DATA_FORMAT, 0x0A); // Tap Axes Register
-	ADXL345_Write_To_Reg(ADXL345_REG_BW_RATE, 0x0A);
+
+	/****************************************************************
+	 * Guide for setting Range in ADXL345: [Use these values in ADXL345_REG_DATA_FORMAT]
+	 *
+	 * 02 G ----------> 0x00 <----------- for 10 Bit - Resolution
+	 * 04 G ----------> 0x01 <----------- for 10 Bit - Resolution
+	 * 08 G ----------> 0x02 <----------- for 10 Bit - Resolution
+	 * 16 G ----------> 0x00 <----------- for 10 Bit - Resolution
+	 *
+	 * 02 G ----------> 0x08 <----------- for 10 Bit - Full Resolution
+	 * 04 G ----------> 0x09 <----------- for 11 Bit - Full Resolution
+	 * 08 G ----------> 0x0A <----------- for 12 Bit - Full Resolution
+	 * 16 G ----------> 0x0B <----------- for 13 Bit - Full Resolution
+	 *
+	****************************************************************/
+
+	ADXL345_Write_To_Reg(ADXL345_REG_DATA_FORMAT, 0x08); // This is where we change the values for 2G ,4G,8G,16G;
+
+	ADXL345_Write_To_Reg(ADXL345_REG_POWER_CTL, 0x3B); // Power Control Register
+	ADXL345_Write_To_Reg(ADXL345_REG_BW_RATE, 0x0A); // Set 0x0A for 100Hz which is for I2C Protocol
+
+//	ADXL345_Write_To_Reg(ADXL345_OFSX, 0x40);
+//	ADXL345_Write_To_Reg(ADXL345_OFSY, 0x40);
+//	ADXL345_Write_To_Reg(ADXL345_OFSZ, 0x40);
 }
 
 uint8_t ADXL345_Read_From_Reg(uint16_t MemAddress){
@@ -132,6 +166,11 @@ void read_XYZ(void){
 //	z0 = ADXL345_HIGH_REG_VALUE - ADXL345_Read_From_Reg(ADXL345_REG_Z0);
 //	z1 = ADXL345_HIGH_REG_VALUE - ADXL345_Read_From_Reg(ADXL345_REG_Z1);
 
+//	offset.reg_x = ADXL345_Read_From_Reg(ADXL345_OFSX);
+//	offset.reg_y = ADXL345_Read_From_Reg(ADXL345_OFSY);
+//	offset.reg_z = ADXL345_Read_From_Reg(ADXL345_OFSZ);
+
+
 	x0 = ADXL345_Read_From_Reg(ADXL345_REG_X0);
 	x1 = ADXL345_Read_From_Reg(ADXL345_REG_X1);
 
@@ -147,13 +186,13 @@ void read_XYZ(void){
 
 }
 
-uint16_t convert_output_to_G(uint16_t registerValue){
-	uint16_t register_value_in_G = ((registerValue * 15.6)/ 1000 );
+float  convert_output_to_G(uint16_t registerValue){
+	float register_value_in_G = (float)((registerValue * SCALE_FACTOR)/ 1000 );
 	return register_value_in_G;
 }
 
-uint16_t convert_output_to_MeterPerSecondSqaure(uint16_t registerValue){
-	uint16_t register_value_in_MeterPerSecondSqaure = ((registerValue * 15.6)/ 1000 )* ACCELERATION_DUE_TO_GRAVITY;
+float convert_output_to_MeterPerSecondSqaure(uint16_t registerValue){
+	float  register_value_in_MeterPerSecondSqaure = (float)((registerValue * SCALE_FACTOR)/ 1000 )* ACCELERATION_DUE_TO_GRAVITY;
 	return register_value_in_MeterPerSecondSqaure;
 }
 
@@ -171,8 +210,8 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-	int total_value_in_G = 0;
-	int total_value_in_MeterPerSecondSquare = 0;
+	float total_value_in_G = 0;
+	float total_value_in_MeterPerSecondSquare = 0;
 	int stopFlag = 1;
   /* USER CODE END 1 */
 
@@ -205,7 +244,7 @@ int main(void)
   while (1)
     {
       /* USER CODE END WHILE */
-  	  for(int numberOfReadings = 0; numberOfReadings <= 15; numberOfReadings++){
+  	  for(int numberOfReadings = 1; numberOfReadings <= 25; numberOfReadings++){
 
   			HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
@@ -219,17 +258,24 @@ int main(void)
   			output_in_MetersPerSecondSquared.reg_y = convert_output_to_MeterPerSecondSqaure(sensorData.reg_y);
   			output_in_MetersPerSecondSquared.reg_z = convert_output_to_MeterPerSecondSqaure(sensorData.reg_z);
 
-  			total_value_in_G = sqrt(pow(output_in_G.reg_x,2) + pow(output_in_G.reg_y,2) + pow(output_in_G.reg_z,2));
+  			total_value_in_G = sqrt(pow(output_in_G.reg_x, 2) + pow(output_in_G.reg_y, 2) + pow(output_in_G.reg_z, 2));
   			total_value_in_MeterPerSecondSquare = sqrt(pow(output_in_MetersPerSecondSquared.reg_x,2) + pow(output_in_MetersPerSecondSquared.reg_y,2) + pow(output_in_MetersPerSecondSquared.reg_z,2));
 
   			printf("-----------------------------------------------------------------------------------------------------------\r\n");
-  			printf("%d. x: %u, y: %u, z; %u RAW OUTPUT\r\n", numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
+  			printf("%d. x: %d, y: %d, z: %d RAW OUTPUT\r\n", numberOfReadings, sensorData.reg_x, sensorData.reg_y, sensorData.reg_z);
   			printf("\r\n");
-  			printf("%d. x: %u, y: %u, z; %u G\r\n", numberOfReadings, output_in_G.reg_x, output_in_G.reg_y, output_in_G.reg_z);
+  			printf("%d. x: %f, y: %f, z: %f G\r\n", numberOfReadings, output_in_G.reg_x, output_in_G.reg_y, output_in_G.reg_z);
   			printf("\r\n");
-  			printf("%d. x: %u, y: %u, z; %u m/s^2\r\n", numberOfReadings, output_in_MetersPerSecondSquared.reg_x, output_in_MetersPerSecondSquared.reg_y, output_in_MetersPerSecondSquared.reg_z);
+  			printf("%d. x: %f, y: %f, z: %f m/s^2\r\n", numberOfReadings, output_in_MetersPerSecondSquared.reg_x, output_in_MetersPerSecondSquared.reg_y, output_in_MetersPerSecondSquared.reg_z);
   			printf("\r\n");
-  			printf("Total Value: %u\r\n", total_value_in_G);
+  			printf("Total Value: %f G\r\n", total_value_in_G);
+  			printf("\r\n");
+  			printf("Total Value: %f m/s^2\r\n", total_value_in_MeterPerSecondSquare);
+  			printf("\r\n");
+//  		printf("Offset Register values: \r\n");
+//  		printf("\r\n");
+//  		printf("offset reg x: %u, offset reg y: %u, offset reg z: %u ", offset.reg_x, offset.reg_y, offset.reg_z);
+//  		printf("\r\n");
   			printf("-----------------------------------------------------------------------------------------------------------\r\n");
 
   			HAL_Delay(500);
