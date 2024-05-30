@@ -5,10 +5,10 @@
 
 /* Defining Device Defaults*/
 #define ADXL345_DEV_ADDRESS 0x53 << 1
+#define ADXL345_REG_BW_RATE 0x2C
 #define ADXL345_REG_DEVID 0x00
 
 /* Setting the registers which prompt ADXL345 for reading vibrations*/
-#define ADXL345_REG_BW_RATE 0x2C
 #define ADXL345_REG_POWER_CTL 0x2D
 #define ADXL345_MEASURE_MODE 0x08
 #define ADXL345_REG_THRESHOLD_ACTIVE 0x24
@@ -26,8 +26,8 @@
 
 /*miscellaneous macros for use */
 #define ADXL345_HIGH_REG_VALUE 0xff
-#define SCALE_FACTOR 4.3
 #define ACCELERATION_DUE_TO_GRAVITY 9.8
+#define SCALE_FACTOR 4.3
 
 /* creates structures to store values in registers */
 struct acc_reg_data{
@@ -46,18 +46,17 @@ struct output_reg_data{
 uint8_t dataStoreBuffer[1];
 uint8_t temp;
 
-
 I2C_HandleTypeDef hi2c1;
 
 UART_HandleTypeDef huart2;
 
 
+/* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-void MX_GPIO_Init(void);
-void MX_USART2_UART_Init(void);
-void MX_I2C1_Init(void);
-
-
+static void MX_GPIO_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_I2C1_Init(void);
+/* Private user code ---------------------------------------------------------*/
 
 /**************************************************
  * @brief:  This function writes to a single register of slave device whose address is supplied as a parameter under I2C Protocol.
@@ -65,7 +64,6 @@ void MX_I2C1_Init(void);
  * @parameter:  Data -> (unsigned 8 bit value) usually supplied as a hex value. This is the value that one wants to set in that register
  * @return value: Null
 **************************************************/
-
 void ADXL345_Write_To_Reg(uint16_t MemAddress, uint8_t Data){
 	if (HAL_I2C_Mem_Write(&hi2c1, ADXL345_DEV_ADDRESS, MemAddress, 1, &Data, 1, 100) == HAL_OK )
 	{
@@ -101,6 +99,7 @@ void ADXL345_Init(void){
 	ADXL345_Write_To_Reg(ADXL345_REG_POWER_CTL, 0x3B); // Power Control Register
 	ADXL345_Write_To_Reg(ADXL345_REG_BW_RATE, 0x0A); // Set 0x0A for 100Hz which is for I2C Protocol
 
+}
 
 /**************************************************
 * @brief:  This function reads from a single register of slave device whose address is supplied as a parameter under I2C Protocol.
@@ -136,14 +135,12 @@ void read_XYZ(void){
 	z0 = ADXL345_Read_From_Reg(ADXL345_REG_Z0);
 	z1 = ADXL345_Read_From_Reg(ADXL345_REG_Z1);
 
-	// First combines two bytes into a 16 bit value by OR-ing the individual 8 bits and then converting them to integer or in other words a signed value.
-	// This is where we convert the unsigned value to signed value.
-	//THen we store this in sensorData variable struct which we created above.
 	sensorData.reg_x = (int)(x1 << 8 | x0);
 	sensorData.reg_y = (int)(y1 << 8 | y0);
 	sensorData.reg_z = (int)(z1 << 8 | z0);
 
 }
+
 
 float  convert_output_to_G(uint16_t registerValue){
 	float register_value_in_G = (float)((registerValue * SCALE_FACTOR)/ 1000 );
@@ -161,23 +158,39 @@ int _write(int file, char *ptr, int len){
 	return len;
 }
 
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
 {
 
+  /* USER CODE BEGIN 1 */
 	float total_value_in_G = 0;
 	float total_value_in_MeterPerSecondSquare = 0;
 	int stopFlag = 1;
+  /* USER CODE END 1 */
 
-	HAL_Init();
+  /* MCU Configuration--------------------------------------------------------*/
 
-	SystemClock_Config();
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
 
-    MX_GPIO_Init();
-    MX_USART2_UART_Init();
-    MX_I2C1_Init();
 
-    ADXL345_Init();
-    while (1){
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_USART2_UART_Init();
+  MX_I2C1_Init();
+
+  ADXL345_Init();
+
+
+  while (1)
+    {
 
   	  for(int numberOfReadings = 1; numberOfReadings <= 25; numberOfReadings++){
 
@@ -219,16 +232,21 @@ int main(void)
   	  }
 
     }
+
 }
 
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Initializes the RCC Oscillators according to the specified parameters
-   * in the RCC_OscInitTypeDef structure.
-   */
+  * in the RCC_OscInitTypeDef structure.
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -241,7 +259,7 @@ void SystemClock_Config(void)
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
-    */
+  */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
@@ -260,7 +278,8 @@ void SystemClock_Config(void)
   * @param None
   * @retval None
   */
-void MX_I2C1_Init(void){
+static void MX_I2C1_Init(void)
+{
 
   hi2c1.Instance = I2C1;
   hi2c1.Init.ClockSpeed = 100000;
@@ -282,7 +301,7 @@ void MX_I2C1_Init(void){
   * @param None
   * @retval None
   */
-void MX_USART2_UART_Init(void)
+static void MX_USART2_UART_Init(void)
 {
 
   huart2.Instance = USART2;
@@ -304,10 +323,9 @@ void MX_USART2_UART_Init(void)
   * @param None
   * @retval None
   */
-void MX_GPIO_Init(void)
+static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
-
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
@@ -340,14 +358,15 @@ void MX_GPIO_Init(void)
   * @brief  This function is executed in case of error occurrence.
   * @retval None
   */
-void Error_Handler(void){
-
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1){
-
-  	  }
-
- 	 }
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
 }
 
 #ifdef  USE_FULL_ASSERT
@@ -360,6 +379,9 @@ void Error_Handler(void){
   */
 void assert_failed(uint8_t *file, uint32_t line)
 {
-
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
