@@ -1,4 +1,4 @@
-# Predictive Maintainace  using ADXL345 and Arduino Uno
+# Predictive Maintainace  using ADXL345 and STM32
 
 >
     Code Originally written by Mohammed Faariq Siddiqui
